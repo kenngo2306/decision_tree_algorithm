@@ -1,0 +1,1 @@
+python .\Assignment1.py 50 5 .\data_sets1\training_set.csv .\data_sets1\validation_set.csv .\data_sets1\test_set.csv no
