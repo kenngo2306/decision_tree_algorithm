@@ -17,37 +17,10 @@ import pandas as pd
 import numpy as np
 import random
 from copy import deepcopy
-
-
-
 pd.set_option('display.max_columns', None)  
 
-# tree data structure to hold the decision tree
-class MyNode:
-    
-    def __init__(self, name):
-        self.name = name
 
-# queue data structure to numerate the node in decision tree        
-class MyQueue:
-    
-    def __init__(self):
-        self.queue = []
-        
-    def enqueue(self, node):
-        self.queue.insert(0,node)
-    
-    def dequeue(self):
-        return self.queue.pop()
-    
-    def size(self):
-        return len(self.queue)
-    
-    
-# taking arguments and validate inputs
-K_value = -1
-L_value = -1
-
+# function to validate positive integer 
 def validate_positive_int(an_input):
     try:
         num = int(an_input)
@@ -57,7 +30,8 @@ def validate_positive_int(an_input):
             raise ValueError('Invalid input')
     except ValueError:
         print("Invalid input")
-         
+    
+# taking 6 arguments and validate inputs
 L_value = int(sys.argv[1]) if (validate_positive_int(sys.argv[1])) else -1
 K_value = int(sys.argv[2]) if (validate_positive_int(sys.argv[2])) else -1
 
@@ -91,7 +65,25 @@ training_set = import_training_set()
 test_set = import_test_set()
 validation_set = import_validation_set()
 
- 
+
+# tree data structure to hold the decision tree
+class MyNode: 
+    def __init__(self, name):
+        self.name = name
+
+# queue data structure to numerate the node in decision tree using bfs       
+class MyQueue:
+    def __init__(self):
+        self.queue = []
+        
+    def enqueue(self, node):
+        self.queue.insert(0,node)
+    
+    def dequeue(self):
+        return self.queue.pop()
+    
+    def size(self):
+        return len(self.queue) 
 
 # custom log2 function to handle base 0 case    
 def my_log2(number):
@@ -102,8 +94,6 @@ def my_log2(number):
 
 # function to calculate entropy given p_plus and p_minus
 def entropy(p_plus, p_minus):
-    #print (p_plus)
-    #print (p_minus)
     p_total = p_plus + p_minus
     if p_total == 0:
         return 0
@@ -129,49 +119,32 @@ def my_count2(data, attribute, attribute_value, target_attribute, target_value):
     return data[(data[attribute] == attribute_value) & (data[target_attribute] == target_value)].shape[0]
 
     
-# function to calculate the information gain for a specific attribute given a examples - training set
-def info_gain2(examples, attribute):
+# function to calculate the information gain using entropy
+def info_gain1(examples, attribute):
     target_attribute = 'Class'
     big_total = examples.shape[0]
     big_entropy = entropy(my_count(examples, 'Class', 1),my_count(examples, 'Class', 0))
-    
     plus_total = my_count(examples, attribute, 1)
     minus_total = my_count(examples, attribute, 0)
-    
     plus_entropy = entropy(my_count2(examples, attribute, 1, target_attribute, 1), my_count2(examples, attribute, 1, target_attribute, 0))
-    
     minus_entropy = entropy(my_count2(examples, attribute, 0, target_attribute, 1), my_count2(examples, attribute, 0, target_attribute, 0))
-    
     info_gain = big_entropy - (plus_total / big_total * plus_entropy) - (minus_total / big_total * minus_entropy)
-    
     return attribute, info_gain
 
-def info_gain3(examples, attribute):
+# function to calculate the information gain using variance impurity
+def info_gain2(examples, attribute):
     target_attribute = 'Class'
     big_total = examples.shape[0]
     big_vi = vi(my_count(examples, 'Class', 1), my_count(examples, 'Class', 0))
-    
     plus_total = my_count(examples, attribute, 1)
     minus_total = my_count(examples, attribute, 0)
-    
-    # entropy of sample that answer is 1
     plus_vi = vi(my_count2(examples, attribute, 1, target_attribute, 1), my_count2(examples, attribute, 1, target_attribute, 0))
-    
-    # entropy of sample that answer is 0
-    #print ('attr=', attribute)l
-    #print (examples)
     minus_vi = vi(my_count2(examples, attribute, 0, target_attribute, 1), my_count2(examples, attribute, 0, target_attribute, 0))
-    
     info_gain = big_vi - (plus_total / big_total * plus_vi) - (minus_total / big_total * minus_vi)
     
     return attribute, info_gain
 
-
-
-
-
-
-
+# recursive id3 algorithm to build decision tree
 def id3(examples, target_attribute, attributes):
     
     root = MyNode('root')
@@ -216,21 +189,14 @@ def id3(examples, target_attribute, attributes):
 # function to find the next best attribute (with maximum info gain) 
 #   given the training set and a set of attribute
 def findBestAttributes(examples, attributes):
-    print("attributes=", attributes)
     bestAttr = ''
-    print(examples)
     maxInfoGain = 0
     for attr in attributes:
-#        attr_info_gain = info_gain2(examples, attr)[1]
         attr_info_gain = info_gain2(examples, attr)[1]
-
         if (attr_info_gain >= maxInfoGain):
             bestAttr = attr
             maxInfoGain = attr_info_gain
-    print ("bestAttr=",bestAttr)
     return bestAttr
-
-#findBestAttributes(df, df.columns.drop('Class'))
 
 def dfs_print(node, level):
     if (node.lchild.name == 0 or node.lchild.name == 1):
@@ -275,7 +241,7 @@ def post_prune(L_value, K_value):
     tree = id3(data1, 'Class', data1.columns.drop('Class'))  
     tree_best = deepcopy(tree)
     accuracy_best = validate_test_set(tree_best, validate_set)
-    print('initial accuracy ', accuracy_best)
+    
     for i in range(1, L_value+1):
         tree_tmp = deepcopy(tree)
         m = random.randint(1, K_value+1)
@@ -285,31 +251,14 @@ def post_prune(L_value, K_value):
                 p_value = random.randint(1, size_N+1)
                 if(p_value != 1):
                     break
-            
-            print('p_value', p_value)
             replace_subtree_with_leaf(tree_tmp, p_value)
         tmp_accuracy = validate_test_set(tree_tmp, validate_set)
-        print(tmp_accuracy)
         if (tmp_accuracy > accuracy_best):
             accuracy_best = tmp_accuracy
-            # relabel the best tree
-            
             tree_best = deepcopy(tree_tmp)
-    print ('final size ', bfs_label_tree(tree_best))
-    print ('final accuracy ', accuracy_best)
-    return tree_best
-
-def import_data1():    
-    data_sets1 = pd.read_csv('./data_sets1/training_set.csv', sep=',')
-    return data_sets1
-
-def import_test1():
-    test_sets1 = pd.read_csv('./data_sets1/test_set.csv', sep=',')
-    return test_sets1  
-
-def import_validate_set():
-    validate_set = pd.read_csv('./data_sets1/validation_set.csv', sep=',')
-    return validate_set
+    # relabel the tree before returning
+    bfs_label_tree(tree_best)
+    return tree_best, accuracy_best
 
 # function to level order tree, the level is stored in label attribute
 def bfs_label_tree(root):
