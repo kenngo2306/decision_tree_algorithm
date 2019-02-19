@@ -39,13 +39,7 @@ training_set_path = sys.argv[3]
 validation_set_path = sys.argv[4]
 test_set_path = sys.argv[5]
 to_print = sys.argv[6]
-
-if (to_print == 'yes'):
-    needed_to_print = True
-elif (to_print == 'no'):
-    needed_to_print = False
-else:
-    raise ValueError('Invalid input') 
+needed_to_print = True if to_print == 'yes' else False
 
 
 def import_training_set():    
@@ -59,12 +53,6 @@ def import_test_set():
 def import_validation_set():    
     validation_set = pd.read_csv(validation_set_path, sep=',')
     return validation_set
-
-# import data set
-#training_set = import_training_set()
-#test_set = import_test_set()
-#validation_set = import_validation_set()
-
 
 # tree data structure to hold the decision tree
 class MyNode: 
@@ -122,12 +110,19 @@ def my_count2(data, attribute, attribute_value, target_attribute, target_value):
 # function to calculate the information gain using entropy
 def info_gain1(examples, attribute):
     target_attribute = 'Class'
+    # number of samples
     big_total = examples.shape[0]
+    # entropy against target attribute
     big_entropy = entropy(my_count(examples, 'Class', 1),my_count(examples, 'Class', 0))
+    # number of sample with attribute x = 1
     plus_total = my_count(examples, attribute, 1)
+    # number of sample with attribute x = 0
     minus_total = my_count(examples, attribute, 0)
+    # entropy of attribute x = 1
     plus_entropy = entropy(my_count2(examples, attribute, 1, target_attribute, 1), my_count2(examples, attribute, 1, target_attribute, 0))
+    # entropy of attribute x = 0
     minus_entropy = entropy(my_count2(examples, attribute, 0, target_attribute, 1), my_count2(examples, attribute, 0, target_attribute, 0))
+    # info gain calculation
     info_gain = big_entropy - (plus_total / big_total * plus_entropy) - (minus_total / big_total * minus_entropy)
     return attribute, info_gain
 
@@ -169,8 +164,6 @@ def id3(examples, target_attribute, attributes, heuristic):
     
     next_attr = findBestAttributes(examples, attributes, heuristic)
     root.name = next_attr
-    root.class0 = negative_examples
-    root.class1 = positive_examples
 
     l_examples = examples.loc[examples[next_attr] != 1]
     if (l_examples.shape[0] == 0):
@@ -236,26 +229,33 @@ def validate_test_set(root, test):
     
     return correct/total   
 
+# post prune algorithm
 def post_prune(L_value, K_value, tree, validation_set):
+    # set intial tree as the best tree with highest accuracy
     tree_best = deepcopy(tree)
+    # get size of the tree
     size_initial = bfs_label_tree(tree)
     accuracy_initial = validate_test_set(tree_best, validation_set)
     accuracy_best = accuracy_initial
+    
+    # L value is for number of trees we want to try
+    # K value is maximum of times we want to replace a subtree with a leaf
+    # for each tree
     for i in range(1, L_value+1):
         tree_tmp = deepcopy(tree)
         m = random.randint(1, K_value+1)
         for j in range(1, m+1):  
             size_N = bfs_label_tree(tree_tmp)
-            while (True):
-                p_value = random.randint(1, size_N+1)
-                if(p_value != 1):
-                    break
+            # pick a random node to be replace, max is the size of the tree
+            p_value = random.randint(2, size_N+1)
             replace_subtree_with_leaf(tree_tmp, p_value)
+        # check if the new tree has better accuracy, if yes, record it as
+        # the best tree so far
         tmp_accuracy = validate_test_set(tree_tmp, validation_set)
         if (tmp_accuracy > accuracy_best):
             accuracy_best = tmp_accuracy
             tree_best = deepcopy(tree_tmp)
-    # relabel the tree before returning
+    # relabel the tree and get best tree's size before returning
     size_best = bfs_label_tree(tree_best)
     return accuracy_initial, tree_best, accuracy_best, size_initial, size_best
 
@@ -280,7 +280,10 @@ def bfs_label_tree(root):
         label += 1
     return label-1 
 
+# function to replace a subtree at its node p th from root
 def replace_subtree_with_leaf(root, p_value):
+    # use queue to bfs until the node p, then replace it with
+    # most common attribute of the subtree at p th node
     my_queue = MyQueue()
     my_queue.enqueue(root)
     while(my_queue.size() != 0):
@@ -296,51 +299,81 @@ def replace_subtree_with_leaf(root, p_value):
             my_queue.enqueue(node.rchild)    
     return
         
-    
+ # input and output logic   
 training_set = import_training_set()
 test_set = import_test_set()
 validation_set = import_validation_set()
+
+# heuristic 1 process
 decision_tree_heuristic_1 = id3(training_set, 'Class', training_set.columns.drop('Class'),1)   
 accuracy = validate_test_set(decision_tree_heuristic_1, test_set)
 accuracy_initial, tree_best, accuracy_best, size_initial, size_best = post_prune(L_value, K_value, decision_tree_heuristic_1, validation_set)
 
-f= open("reports.txt","w+")
-f.close()
-f= open("reports.txt","a")
+f= open("outputs.txt","a+")
 orig_stdout = sys.stdout
 sys.stdout = f
+print('Training set: ', training_set_path)
+print('L=', L_value,' K=', K_value)
 print('Test set accuracy - 1st heuristic = ', accuracy)
 print('Original validation set accuracy - 1st heuristic =', accuracy_initial)
 print('Post prune validation set accuracy - 1st heuristic =', accuracy_best)
+# print the tree to report file
 print('Initial decision tree - 1st heuristic (', size_initial, ' nodes)')
 dfs_print(decision_tree_heuristic_1,0)
 print('#################################################')
 print('Post Pruning decision tree - 1st heuristic (', size_best, ' nodes)')
 dfs_print(tree_best,0)
-sys.stdout = orig_stdout
 f.close()
 
+#change out put back to standard output and check if the tree is needed to be printed in the console
+sys.stdout = orig_stdout
+print('Training set: ', training_set_path)
+print('L=', L_value,' K=', K_value)
+print('Test set accuracy - 1st heuristic = ', accuracy)
+print('Original validation set accuracy - 1st heuristic =', accuracy_initial)
+print('Post prune validation set accuracy - 1st heuristic =', accuracy_best)
+if (needed_to_print):
+    print('Initial decision tree - 1st heuristic (', size_initial, ' nodes)')
+    dfs_print(decision_tree_heuristic_1,0)
+    print('#################################################')
+    print('Post Pruning decision tree - 1st heuristic (', size_best, ' nodes)')
+    dfs_print(tree_best,0)
+
+# heuristic 2 process
 training_set = import_training_set()
 decision_tree_heuristic_2 = id3(training_set, 'Class', training_set.columns.drop('Class'),2)
 accuracy = validate_test_set(decision_tree_heuristic_2, test_set)
 accuracy_initial, tree_best, accuracy_best, size_initial, size_best = post_prune(L_value, K_value, decision_tree_heuristic_2, validation_set)
 
-f= open("reports.txt","a")
+f= open("outputs.txt","a")
 orig_stdout = sys.stdout
 sys.stdout = f
-print('#################################################')
-print('#################################################')
-print('#################################################')      
+print('#################################################') 
 print('Test set accuracy - 2nd heuristic = ', accuracy)
 print('Original validation set accuracy - 2nd heuristic =', accuracy_initial)
 print('Post prune validation set accuracy - 2nd heuristic =', accuracy_best)
+
+# print the trees to output file
 print('Initial decision tree - 2nd heuristic(', size_initial, ' nodes)')
-dfs_print(decision_tree_heuristic_1,0)
+dfs_print(decision_tree_heuristic_2,0)
 print('#################################################')
 print('Post Pruning decision tree - 2nd heuristic(', size_best, ' nodes)')
 dfs_print(tree_best,0)
-sys.stdout = orig_stdout
 f.close()
+
+sys.stdout = orig_stdout
+print('#################################################') 
+print('Test set accuracy - 2nd heuristic = ', accuracy)
+print('Original validation set accuracy - 2nd heuristic =', accuracy_initial)
+print('Post prune validation set accuracy - 2nd heuristic =', accuracy_best)
+if (needed_to_print):
+    print('Initial decision tree - 2nd heuristic(', size_initial, ' nodes)')
+    dfs_print(decision_tree_heuristic_2,0)
+    print('#################################################')
+    print('Post Pruning decision tree - 2nd heuristic(', size_best, ' nodes)')
+    dfs_print(tree_best,0)
+print ('============================== End of a command ===============================')
+
 
    
 
